@@ -2,7 +2,7 @@
 
 import dotenv from 'dotenv';
 import connectDB from './db/index.js';
-import app from './app.js';
+import { app } from './app.js';
 
 dotenv.config({
     path: './.env',
@@ -17,7 +17,7 @@ connectDB()
         });
 
         app.listen(PORT, () => {
-            console.log(`Server is running at PORT: http://127.0.0.1:${PORT}`);
+            console.log(`Server is running at PORT: ${PORT}`);
         });
     })
     .catch((err) => {

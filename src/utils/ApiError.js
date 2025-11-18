@@ -16,7 +16,7 @@ class ApiError extends Error {
     }
 }
 
-export default ApiError;
+export { ApiError };
 
 
 // 'stack' is error stack here

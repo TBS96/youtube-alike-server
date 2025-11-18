@@ -19,7 +19,7 @@ app.use(express.urlencoded({extended: true, limit: '16kb'}));
 app.use(express.static('public'));
 
 // access/set the cookies in the user's browser from my server. basically i can perform CRUD operations in user's browser. because there are some ways by which i can keep secure cookies in the user's browser, so that the server can read or remove those secure cookies.
-app.use(cookieParser);
+app.use(cookieParser());
 
-export default app;
-// export { app };
+// export default app;
+export { app }

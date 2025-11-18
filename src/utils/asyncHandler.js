@@ -1,12 +1,12 @@
 // promise version start
 const asyncHandler = (requestHandlerFn) => {
-    (req, res, next) => {
+    return (req, res, next) => {
         Promise.resolve(requestHandlerFn(req, res, next))
             .catch((err) => next(err))
     }
 };
 
-export default asyncHandler;
+export { asyncHandler };
 // promise version end
 
 

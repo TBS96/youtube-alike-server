@@ -7,7 +7,7 @@ class ApiResponse {
     }
 }
 
-export default ApiResponse;
+export { ApiResponse };
 
 
 
