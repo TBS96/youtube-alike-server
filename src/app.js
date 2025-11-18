@@ -21,5 +21,14 @@ app.use(express.static('public'));
 // access/set the cookies in the user's browser from my server. basically i can perform CRUD operations in user's browser. because there are some ways by which i can keep secure cookies in the user's browser, so that the server can read or remove those secure cookies.
 app.use(cookieParser());
 
+
+
+// ================== import routes ==================
+import userRouter from './routes/user.routes.js';
+
+// ================== routes declaration ==================
+app.use('/api/v1/users', userRouter);    // http://localhost:8000/api/v1/users/register
+
+
 // export default app;
 export { app }
