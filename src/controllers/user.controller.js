@@ -21,6 +21,7 @@ const registerUser = asyncHandler( async (req, res) => {
     // ============= 1. get user details from frontend =============
     const { fullName, email, username, password } = req.body;
     console.log(`Email: ${email}, Full Name: ${fullName}, Username: ${username}, Password: ${password}`);
+    console.log(`Req Files (uploaded files):`, req.files);
     // ============= 1. get user details from frontend =============
 
 
@@ -40,7 +41,7 @@ const registerUser = asyncHandler( async (req, res) => {
     const existingUser = await User.findOne({
         $or: [{ username }, { email }]
     });
-    console.log(`Existing user: ${existingUser}`);
+    // console.log(`Existing user: ${existingUser}`);
 
     if (existingUser) {
         throw new ApiError(409, 'User with this email or username already exists');
@@ -50,7 +51,7 @@ const registerUser = asyncHandler( async (req, res) => {
 
     // ============ 4. check for images ============
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
-    console.log(`Avatar local path: ${avatarLocalPath}`)
+    // console.log(`Avatar local path: ${avatarLocalPath}`);
     const coverImageLocalPath = req?.files?.coverImage?.[0].path;
 
     if (!avatarLocalPath) {
@@ -60,9 +61,10 @@ const registerUser = asyncHandler( async (req, res) => {
 
 
     // =========== 5. if images available, upload them to cloudinary ===========
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-    console.log(`Avatar uploaded on cloudinary: ${avatar}`)
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    // const avatar = await uploadOnCloudinary(avatarLocalPath);
+    const avatar = avatarLocalPath ? await uploadOnCloudinary(avatarLocalPath) : null;
+    // console.log(`Avatar uploaded on cloudinary: ${avatar}`);
+    const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath): null;
 
     if (!avatar) {
         throw new ApiError(400, 'Avatar file is required');
@@ -84,7 +86,7 @@ const registerUser = asyncHandler( async (req, res) => {
 
     // ======== 7. if user created, then remove password and refresh token keys from response ========
     const createdUser = await User.findById(user._id).select('-password -refreshToken');    // by default in mongodb, all fields are selected, so here, inside 'select()' method we need to pass the keys we wanna exclude with minus sign, as shown in syntax above
-    console.log(`Created user: ${createdUser}`);
+    // console.log(`Created user: ${createdUser}`);
     // ======== 7. if user created, then remove password and refresh token keys from response ========
 
     
