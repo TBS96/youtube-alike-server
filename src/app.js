@@ -1,11 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import conf from './conf/conf.js';
 
 const app = express();
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: conf.corsOrigin,
     credentials: true,
 }));
 

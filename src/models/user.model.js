@@ -1,6 +1,7 @@
 import mongoose, {Schema} from "mongoose";
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import conf from "../conf/conf.js";
 
 const userSchema = new Schema(
     {
@@ -74,9 +75,9 @@ userSchema.methods.generateAccessToken = function () {
             username: this.username,
             fullName: this.fullName
         },
-        process.env.ACCESS_TOKEN_SECRET,
+        conf.accessTokenSecret,
         {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            expiresIn: conf.accessTokenExpiry,
             // algorithm: 'none',
             // subject: this.email
         }
@@ -89,9 +90,9 @@ userSchema.methods.generateRefreshToken = function () {
         {
             _id: this._id,
         },
-        process.env.REFRESH_TOKEN_SECRET,
+        conf.refreshTokenSecret,
         {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+            expiresIn: conf.refreshTokenExpiry
         }
     )
 }
