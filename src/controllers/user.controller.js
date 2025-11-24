@@ -4,6 +4,28 @@ import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 
+
+
+// reusable fn. to generate access and refresh tokens
+const generateAccessAndRefreshTokens = async (userId) => {
+    try {
+        const user = await User.findById(userId);
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false })
+
+        return {accessToken, refreshToken};
+    }
+    catch (error) {
+        throw new ApiError(500, 'Something went wrong while generating refresh and access tokens');
+    }
+}
+// reusable fn. to generate access and refresh tokens
+
+
+
 const registerUser = asyncHandler( async (req, res) => {
     /* ** algorithm to follow step by step, for user registration **
     1. get user details from frontend
@@ -104,11 +126,118 @@ const registerUser = asyncHandler( async (req, res) => {
     // ========= 9. if user created, return response with created-user obj =========
 });
 
+
+
+const loginUser = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for user login **
+    1. get email/username and password from frontend
+    2. validation - no email or email
+    3. check for user existence in DB -> find the user
+    4. password check
+    5. generate access & refresh tokens for the user id, if user exists in DB
+    6. send access & refresh tokens in cookies
+    */
+
+    // ================ 1. get email/username and password from frontend ================
+    const { email, username, password } = req.body;
+    console.log(`Email: ${email}, Username: ${username}, Password: ${password}`);
+    // ================ 1. get email/username and password from frontend ================
+
+
+    // ================ 2. validation - no email or username ================
+    if (!email || !username) {
+        throw new ApiError(400, 'Username or email is required');
+    }
+    // ================ 2. validation - no email or username ================
+
+
+    // ================ 3. check for user existence in DB -> find the user ================
+    const user = await User.findOne({
+        $or: [{email}, {username}]
+    });
+
+    if (!user) {
+        throw new ApiError(404, 'User does not exist');
+    }
+    // ================ 3. check for user existence in DB -> find the user ================
+    
+
+    // ================ 4. password check ================
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if (!isPasswordValid) {
+        throw new ApiError(401, 'Invalid user credentials');
+    }
+    // ================ 4. password check ================
+
+
+    // =========== 5. generate access & refresh tokens for the user id, if user exists in DB ===========
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+    // =========== 5. generate access & refresh tokens for the user id, if user exists in DB ===========
+
+    
+    // ============ 6. send access & refresh tokens in cookies ============
+    // exclude sensitive fields (password, refreshToken) from the User object
+    const loggedInUser = await User.findById(user._id).select('-password -refreshToken');
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    };
+
+    /* NOTE:
+    WHY SENDING TOKENS IN BOTH COOKIE + JSON?
+    - Cookies → used by web apps (browser automatically stores & sends them)
+    - JSON response → required for mobile apps
+    
+    This makes the API multi-platform compatible.
+    - Browser apps use cookies only.
+    - Mobile apps pick tokens from JSON and store securely on device.
+    */
+
+    return res
+    .status(200)
+    .cookie('accessToken', accessToken, options)    // for web clients
+    .cookie('refreshToken', refreshToken, options)  // for web clients
+    .json(
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser,
+                accessToken,    // for immediate use (web/mobile)
+                refreshToken   // needed for mobile apps (no cookies)
+            },
+            'User logged in successfully'
+        )
+    )
+    // ============ 6. send access & refresh tokens in cookies ============
+});
+
+
 export {
     registerUser,
+    loginUser,
 };
 
 
 
 
 // writing in steps for logic building in mind
+
+/*
+** NOTES for access and refresh tokens:**
+Why we exclude fields (-password -refreshToken):
+- to avoid exposing sensitive information in the API response.
+
+why refreshToken exists in cookies AND JSON:
+- to support both browser clients (cookies) and mobile apps (JSON body).
+
+why cookies are used for web apps:
+- because browsers automatically store and send HTTP-only cookies securely.
+
+why JSON tokens are required for mobile apps:
+- because mobile apps don’t have browser cookies and must store tokens manually.
+
+why this makes the auth system multi-platform and robust:
+- because it works securely for both web applications and mobile clients with one unified API.
+*/
