@@ -16,6 +16,8 @@ const generateAccessAndRefreshTokens = async (userId) => {
         user.refreshToken = refreshToken;
         await user.save({ validateBeforeSave: false })
 
+        // console.log('Access token', accessToken);
+        // console.log('Refresh token', refreshToken);
         return {accessToken, refreshToken};
     }
     catch (error) {
@@ -205,7 +207,7 @@ const loginUser = asyncHandler( async (req, res) => {
             200,
             {
                 user: loggedInUser,
-                accessToken: accessToken + 'sex',    // for immediate use (web/mobile)
+                accessToken: accessToken,    // for immediate use (web/mobile)
                 refreshToken   // needed for mobile apps (no cookies)
             },
             'User logged in successfully'

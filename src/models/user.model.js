@@ -86,7 +86,7 @@ userSchema.methods.generateAccessToken = function () {
 
 // creating custom mongoose method 'generateRefreshToken' to generate refresh token with 'jwt.sign()', in which 1st object/string/array will have payload(data), 2nd parameter is the secret/private-key, and 3rd is the sign options, basically object to set the expiry of the token.
 userSchema.methods.generateRefreshToken = function () {
-    jwt.sign(
+    return jwt.sign(
         {
             _id: this._id,
         },
