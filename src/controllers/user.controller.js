@@ -182,6 +182,7 @@ const loginUser = asyncHandler( async (req, res) => {
     // ============ 6. send access & refresh tokens in cookies ============
     // exclude sensitive fields (password, refreshToken) from the User object
     const loggedInUser = await User.findById(user._id).select('-password -refreshToken');
+    // console.log(loggedInUser);
 
     const options = {
         httpOnly: true,
