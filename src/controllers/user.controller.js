@@ -499,6 +499,67 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
 });
 
 
+
+const updateUserCoverImage = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for updating user cover image **
+    1. extract the uploaded image path from req.file (handled by multer)
+    2. validate that cover image file is provided, otherwise throw an error
+    3. upload the cover image to Cloudinary and get the hosted image URL
+    4. validate the upload success by ensuring the returned URL exists
+    5. update the authenticated user’s coverImage field in the database with the new image URL and exclude password
+    6. send a success response confirming the coverImage update
+    */
+
+    // =========== 1. extract the uploaded image path from req.file (handled by multer) ===========
+    const coverImageLocalPath = req.file?.path;
+    // console.log('Update user cover path:', coverImageLocalPath);
+    // =========== 1. extract the uploaded image path from req.file (handled by multer) ===========
+
+
+    // ========== 2. validate that cover image file is provided, otherwise throw an error ==========
+    if (!coverImageLocalPath) {
+        throw new ApiError(400, 'Cover image file is missing');
+    }
+    // ========== 2. validate that cover image file is provided, otherwise throw an error ==========
+
+
+    // ================== 3. upload the cover image to Cloudinary and get the hosted image URL ==================
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    // ================== 3. upload the cover image to Cloudinary and get the hosted image URL ==================
+
+    
+    // ================== 4. validate the upload success by ensuring the returned URL exists ==================
+    if (!coverImage.url) {
+        throw new ApiError(400, 'Error while uploading on cover image');
+    }
+    // ================== 4. validate the upload success by ensuring the returned URL exists ==================
+
+    
+    // =============== 5. update the authenticated user’s coverImage field in the database with the new image URL and exclude password ===============
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                coverImage: coverImage
+            }
+        },
+        {
+            new: true
+        }
+    ).select('-password');
+    // =============== 5. update the authenticated user’s coverImage field in the database with the new image URL and exclude password ===============
+
+    
+    // ================ 6. send a success response confirming the coverImage update ================
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, 'Cover image updated successfully')
+    )
+    // ================ 6. send a success response confirming the coverImage update ================
+});
+
+
 export {
     registerUser,
     loginUser,
@@ -508,6 +569,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
+    updateUserCoverImage,
 };
 
 
