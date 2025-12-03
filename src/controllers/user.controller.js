@@ -559,6 +559,8 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     // ================ 6. send a success response confirming the coverImage update ================
 });
 
+// TODO: create utility functions to delete the old avatar and cover images in cloudinary after updating them
+
 
 export {
     registerUser,
