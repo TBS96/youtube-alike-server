@@ -19,7 +19,6 @@ const uploadOnCloudinary = async (localFilePath) => {
         // upload the file on cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: 'auto',
-            upload_preset: conf.cloudinaryUploadPreset
         })
 
         // file has been uploaded successfully
