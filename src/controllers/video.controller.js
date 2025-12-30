@@ -365,8 +365,71 @@ const updateVideo = asyncHandler(async (req, res) => {
     // ============== 7. return success response ==============
 });
 
+
+
+const deleteVideo = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to delete Video **
+    1. extract videoId from req.params and validate it
+    2. fetch video by id and check whether video is present
+    3. check whether the requester is the owner of the video or not
+    4. if videoFilePublicId and thumbnailPublicId present then delete the video and thumbnail
+    5. delete Video collection from db
+    6. return success response
+    */
+
+    // ========= 1. extract videoId from req.params and validate it =========
+    const { videoId } = req.params;
+    
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'The provided video ID is invalid or missing');
+    }
+    // ========= 1. extract videoId from req.params and validate it =========
+
+    
+    // ============ 2. fetch video by id and check whether video is present ============
+    const video = await Video.findById(videoId);
+    
+    if (!video) {
+        throw new ApiError(404, 'Video file not found');
+    }
+    // ============ 2. fetch video by id and check whether video is present ============
+
+    
+    // =========== 3. check whether the requester is the owner of the video or not ===========
+    if (video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized request! You do not have permission to delete this video');
+    }
+    // =========== 3. check whether the requester is the owner of the video or not ===========
+
+    
+    // =========== 4. if videoFilePublicId and thumbnailPublicId present then delete the video and thumbnail ===========
+    if (video.videoFilePublicId) {
+        await deleteFromCloudinary(video.videoFilePublicId, 'video');
+    }
+    
+    if (video.thumbnailPublicId) {
+        await deleteFromCloudinary(video.thumbnailPublicId, 'image');
+    }
+    // =========== 4. if videoFilePublicId and thumbnailPublicId present then delete the video and thumbnail ===========
+
+    
+    // ========== 5. delete Video collection from db ==========
+    await Video.findByIdAndDelete(videoId);
+    // ========== 5. delete Video collection from db ==========
+
+    
+    // =============== 6. return success response ===============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {}, 'Video and associated files deleted successfully')
+    )
+    // =============== 6. return success response ===============
+});
+
 export {
     publishAVideo,
     getVideoById,
     updateVideo,
+    deleteVideo,
 }
