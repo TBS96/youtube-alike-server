@@ -262,7 +262,111 @@ const getVideoById = asyncHandler(async (req, res) => {
     // ========== 11. return the final video object with a success response ==========
 });
 
+
+
+const updateVideo = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to update Video **
+    1. extract videoId from req.params and validate it
+    2. extract title, description from req.body and validate them
+    3. fetch video by id and check whether video is present
+    4. check whether the requester is the owner of the video or not
+    5. thumbnail update (optional choice for users)
+    6. update Video collection in db
+    7. return success response
+    */
+    
+    // ================== 1. extract videoId from req.params and validate it ==================
+    const { videoId } = req.params;
+    
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'The provided video ID is invalid or missing');
+    }
+    
+    console.log(`Video ID: ${videoId}`);
+    // ================== 1. extract videoId from req.params and validate it ==================
+
+
+    // ================== 2. extract title, description from req.body and validate them ==================
+    const { title, description } = req.body;
+    
+    if ([title, description].some(field => field?.trim() === '')) {
+        throw new ApiError(400, 'Video title and description fields are required');
+    }
+
+    console.log(`Updated title: ${title} ; Updated description: ${description}`);
+    // ================== 2. extract title, description from req.body and validate them ==================
+
+    
+    // =========== 3. fetch video by id and check whether video is present ===========
+    const video = await Video.findById(videoId);
+    
+    if (!video) {
+        throw new ApiError(404, 'Video file not found');
+    }
+
+    console.log('Fetched Video: ', video);
+    // =========== 3. fetch video by id and check whether video is present ===========
+
+
+    // ======== 4. check whether the requester is the owner of the video or not ========
+    if (video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized request! You do not own this video');
+    }
+    // ======== 4. check whether the requester is the owner of the video or not ========
+
+
+    // ========= 5. thumbnail update (optional choice for users) =========
+    const thumbnailLocalPath = req.file?.path;
+    console.log(`thumbnailLocalPath: ${thumbnailLocalPath}`);
+
+    let newThumbnail;
+
+    // if no thumbnail is uploaded then it will skip to updating the db with title and description
+    if (thumbnailLocalPath) {
+        newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+        if (!newThumbnail) {
+            throw new ApiError(500, 'Falied to upload thumbnail on cloudinary');
+        }
+
+        console.log('New thumbnail: ', newThumbnail);
+
+        if (video.thumbnailPublicId) {
+            await deleteFromCloudinary(video.thumbnailPublicId);
+        }
+    }
+    // ========= 5. thumbnail update (optional choice for users) =========
+
+
+    // ============= 6. update Video collection in db =============
+    const updatedVideo = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $set: {
+                title,
+                description,
+                thumbnail: newThumbnail?.url || video.thumbnail,
+                thumbnailPublicId: newThumbnail?.public_id || video.thumbnailPublicId
+            }
+        },
+        {
+            new: true
+        }
+    );
+    // ============= 6. update Video collection in db =============
+
+
+    // ============== 7. return success response ==============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedVideo, 'Video updated successfully')
+    )
+    // ============== 7. return success response ==============
+});
+
 export {
     publishAVideo,
     getVideoById,
+    updateVideo,
 }
