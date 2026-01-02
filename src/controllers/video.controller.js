@@ -568,10 +568,74 @@ const getAllVideos = asyncHandler(async (req, res) => {
     // =========== 10. return success response with final paginated result ===========
 });
 
+
+
+const togglePublishStatus = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get toggle publish video status **
+    1. extract and validate videoId from req.params
+    2. find the video and if no video found then throw 404 error
+    3. only the owner can toggle status else throw 403 error
+    4. toggle and save the video publish status in video.isPublished in DB
+    5. save validateBeforeSave: false, because we are only changing one field and dont want to re-trigger validation for video files/titles
+    6. return success response
+    */
+
+    // =========== 1. extract and validate videoId from req.params ===========
+    const { videoId } = req.params;
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'The provided video ID is invalid or missing');
+    }
+    // =========== 1. extract and validate videoId from req.params ===========
+
+
+    // ======= 2. find the video and if no video found then throw 404 error =======
+    const video = await Video.findById(videoId);
+    
+    if (!video) {
+        throw new ApiError(404, 'Video not found');
+    }
+    // ======= 2. find the video and if no video found then throw 404 error =======
+
+
+    // =============== 3. only the owner can toggle status else throw 403 error ===============
+    if (video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized request! You cannot change the status of this video ');
+    }
+    // =============== 3. only the owner can toggle status else throw 403 error ===============
+
+
+    // =========== 4. toggle and save the video publish status in video.isPublished in DB ===========
+    video.isPublished = !video.isPublished;
+    console.log(`Video publish status for ${videoId}: ${video.isPublished}`);
+    // =========== 4. toggle and save the video publish status in video.isPublished in DB ===========
+
+
+    // ======= 5. save validateBeforeSave: false, because we are only changing one field and dont want to re-trigger validation for video files/titles =======
+    await video.save({ validateBeforeSave: false });
+    // ======= 5. save validateBeforeSave: false, because we are only changing one field and dont want to re-trigger validation for video files/titles =======
+
+
+    // =========== 6. return success response ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                isPublished: video.isPublished
+            },
+            'Video publish status toggled successfully'
+        )
+    );
+    // =========== 6. return success response ===========
+});
+
 export {
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
     getAllVideos,
+    togglePublishStatus
 }
