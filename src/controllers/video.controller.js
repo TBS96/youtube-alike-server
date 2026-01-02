@@ -427,9 +427,151 @@ const deleteVideo = asyncHandler(async (req, res) => {
     // =============== 6. return success response ===============
 });
 
+
+
+const getAllVideos = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get all videos **
+    1. extract page, limit, searchQuery, sortBy, sortType, userId from req.query
+    2. create empty array 'pipeline' to hold aggregation stages
+    3. S1: if searchQuery exists, use $regex with 'i'(case-sensitive) flag to find matching text in either title or description
+    4. S2: if a userId is provided, convert it into a mongodb ObjectId and filter videos belonging to that specific uploader (owner)
+    5. S3: always filter for isPublished: true to ensure private/draft videos arent public
+    6. S4: dynamically sort the results based on the sortBy field(e.g: createdAt, views, duration etc.) and the sortType in 'asc' or 'desc' order
+    7. S5: perform lookup with the users collection. Use the owner ID from the video to find the matching user and only grab the username, fullName and avatar
+    8. S6: flatten the owner details array using $unwind(created by S5), into a single object for easier frontend access(like owner.video.title and not like owner.video[0].title)
+    9. S7: pass the entire pipeline into aggregatePaginate to handle the math for totalDocs, totalPages, and the current page's data
+    10. return success response with final paginated result
+    */
+
+    // ================ 1. extract page, limit, searchQuery, sortBy, sortType, userId from req.query ================
+    const { page = 1, limit = 5, searchQuery, sortBy = 'createdAt', sortType = 'desc', userId } = req.query;
+    console.log(`Data from req.params: ${page}, ${limit}, ${searchQuery}, ${sortBy}, ${sortType}, ${userId}`);
+    // ================ 1. extract page, limit, searchQuery, sortBy, sortType, userId from req.query ================
+
+
+    // ========== 2. create empty array 'pipeline' to hold aggregation stages ==========
+    const pipeline = [];
+    // ========== 2. create empty array 'pipeline' to hold aggregation stages ==========
+
+
+    // ======== 3. S1: if searchQuery exists, use $regex with 'i'(case-sensitive) flag to find matching text in either title or description ========
+    if (searchQuery) {
+        pipeline.push({
+            $match: {
+                $or: [
+                    {
+                        title: {
+                            $regex: searchQuery,
+                            $options: 'i'
+                        }
+                    },
+                    {
+                        description: {
+                            $regex: searchQuery,
+                            $options: 'i'
+                        }
+                    },
+                ]
+            }
+        });
+    }
+    // ======== 3. S1: if searchQuery exists, use $regex with 'i'(case-sensitive) flag to find matching text in either title or description ========
+
+
+    // ======= 4. S2: if a userId is provided, convert it into a mongodb ObjectId and filter videos belonging to that specific uploader (owner) =======
+    if (userId) {
+        if (!isValidObjectId(userId)) {
+            throw new ApiError(400, 'Invalid or missing User ID');
+        }
+
+        pipeline.push({
+            $match: {
+                owner: mongoose.Types.ObjectId.createFromHexString(userId)
+            }
+        });
+    }
+    // ======= 4. S2: if a userId is provided, convert it into a mongodb ObjectId and filter videos belonging to that specific uploader (owner) =======
+
+
+    // ============ 5. S3: dynamic privacy logic ============
+    // check if the logged-in user is the one whose videos are being fetched
+    const isOwnerRequesting = userId && req.user?._id?.toString() === userId.toString();
+
+    // if i'm not the owner, i should only see published videos
+    if (!isOwnerRequesting) {
+        pipeline.push({
+            $match: {
+                isPublished: true
+            }
+        });
+    }
+    // ============ 5. S3: dynamic privacy logic ============
+
+
+    // ======== 6. S4: dynamically sort the results based on the sortBy field(e.g: createdAt, views, duration etc.) and the sortType in 'asc' or 'desc' order ========
+    pipeline.push({
+        $sort: {
+            [sortBy]: sortType === 'asc' ? 1 : -1
+        }
+    });
+    // ======== 6. S4: dynamically sort the results based on the sortBy field(e.g: createdAt, views, duration etc.) and the sortType in 'asc' or 'desc' order ========
+
+
+    // ======= 7. S5: perform lookup with the users collection. Use the owner ID from the video to find the matching user and only grab the username, fullName and avatar =======
+    pipeline.push(
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'owner',
+                foreignField: '_id',
+                as: 'owner',
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        // ======= 8. S6: flatten the owner details array using $unwind(created by S5), into a single object for easier frontend access(like owner.video.title and not like owner.video[0].title) =======
+        {
+            $unwind: '$owner'   // converts [] into {}
+        }
+        // ======= 8. S6: flatten the owner details array using $unwind(created by S5), into a single object for easier frontend access(like owner.video.title and not like owner.video[0].title) =======
+    );
+    // ======= 7. S5: perform lookup with the users collection. Use the owner ID from the video to find the matching user and only grab the username, fullName and avatar =======
+
+
+    // ======== 9. S7: pass the entire pipeline into aggregatePaginate to handle the math for totalDocs, totalPages, and the current page's data ========
+    // prepare the pipeline for the pagination plugin
+    const videoAggregate = Video.aggregate(pipeline);
+    // console.log('Video aggregate: ', videoAggregate);
+    
+    // use pagination plugin to run the aggregate, calculate metadata(like total pages), and store the result in allVideos
+    const allVideos = await Video.aggregatePaginate(videoAggregate, {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+    });
+    console.log('All videos: ', allVideos);
+    console.log('Owner of video: ', allVideos.docs?.[0]?.owner);
+    // ======== 9. S7: pass the entire pipeline into aggregatePaginate to handle the math for totalDocs, totalPages, and the current page's data ========
+
+    // =========== 10. return success response with final paginated result ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, allVideos, 'All videos fetched successfully')
+    );
+    // =========== 10. return success response with final paginated result ===========
+});
+
 export {
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
+    getAllVideos,
 }
