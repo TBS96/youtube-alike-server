@@ -13,7 +13,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id)
     3. if like exists, delete it (unlike)
     4. if the like does not exist, create a new Like document (like)
-    5. return success respons
+    5. return success response
     */
 
     // ======== 1. extract the videoId from req.params and validate that videoId is a valid MongoDB ObjectId to prevent BSON errors ========
