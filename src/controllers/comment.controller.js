@@ -56,6 +56,72 @@ const addComment = asyncHandler(async (req, res) => {
     // ========== 4. return success response ==========
 });
 
+
+
+const updateComment = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to add a comment by video ID **
+    1. extract videoId and content from req.params and req.body respectively and validate them
+    2. find if the commentId exists using findById else throw 404 error
+    3. check ownership of the commenter using comment.owner and req.user._id, else throw 403 error
+    4. update content of comment using findByIdAndUpdate
+    5. return success response
+    */
+
+    // ======== 1. extract commentId and content from req.params and req.body respectively and validate them ========
+    const { commentId } = req.params;
+    const { content } = req.body;
+    
+    if (!isValidObjectId(commentId)) {
+        throw new ApiError(400, 'Invalid or missing comment ID');
+    }
+    
+    if (!content || content.trim() === '') {
+        throw new ApiError('Content is required to update a comment');
+    }
+    // ======== 1. extract commentId and content from req.params and req.body respectively and validate them ========
+
+    
+    // =========== 2. find if the commentId exists using findById else throw 404 error ===========
+    const comment = await Comment.findById(commentId);
+    
+    if (!comment) {
+        throw new ApiError(404, 'Comment not found');
+    }
+    // =========== 2. find if the commentId exists using findById else throw 404 error ===========
+
+    
+    // ======== 3. check ownership of the commenter using comment.owner and req.user._id, else throw 403 error ========
+    if (comment.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to edit this comment!');
+    }
+    // ======== 3. check ownership of the commenter using comment.owner and req.user._id, else throw 403 error ========
+
+    
+    // ========= 4. update content of comment using findByIdAndUpdate =========
+    const updatedComment = await Comment.findByIdAndUpdate(
+        commentId,
+        {
+            $set: {
+                content: content
+            }
+        },
+        {
+            new: true
+        }
+    );
+    // ========= 4. update content of comment using findByIdAndUpdate =========
+    
+    
+    // ========== 4. return success response ==========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedComment, 'Comment updated successfully')
+    );
+    // ========== 4. return success response ==========
+});
+
 export {
     addComment,
+    updateComment,
 }
