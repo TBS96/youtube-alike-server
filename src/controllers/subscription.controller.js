@@ -36,18 +36,18 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     
     
     // ========= 3. search for a document in the Subscription collection where subscriber is the current user and channel is the channelId =========
-    const existingSubs = await Subscription.findOne({
+    const existingSubscription = await Subscription.findOne({
         subscriber: req.user?._id,
         channel: channelId
     });
     
-    console.log('Existing subs: ', existingSubs);
+    console.log('Existing subs: ', existingSubscription);
     // ========= 3. search for a document in the Subscription collection where subscriber is the current user and channel is the channelId =========
 
     
     // ========= 4. if document exists, delete it (unsubscribe) and return success response with isSubscribed: false =========
-    if (existingSubs) {
-        await Subscription.findByIdAndDelete(existingSubs?._id);
+    if (existingSubscription) {
+        await Subscription.findByIdAndDelete(existingSubscription?._id);
         return res
         .status(200)
         .json(
