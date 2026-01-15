@@ -646,17 +646,17 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
             $addFields: {
                 // ============ 6. calculate total subscribers count and total subscribed channels count ============
                 subscribersCount: {
-                    $size: '$subscribers'
+                    $size: '$subscribers'   // How many people follow THIS channel
                 },
                 channelsSubscribedToCount: {
-                    $size: '$subscribedTo'
+                    $size: '$subscribedTo'  // How many other channels THIS user follows
                 },
                 // ============ 6. calculate total subscribers count and total subscribed channels count ============
 
                 // =========== 7. determine whether the currently logged-in user is subscribed to this channel ===========
                 isSubscribed: {
                     $cond: {
-                        if: {$in: [req.user?._id, '$subscribers.subscribers']},
+                        if: {$in: [req.user?._id, '$subscribers.subscriber']},
                         then: true,
                         else: false
                     }
