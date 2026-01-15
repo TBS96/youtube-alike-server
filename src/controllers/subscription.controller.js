@@ -95,8 +95,9 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     2. S1 ($match): filter the Subscription collection for documents where channel matches the channelId
     3. S2 ($lookup): join with the users collection to get the details of the subscriber (the person who followed)
     4. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten)
-    5. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar)
-    6. return success response with subscribers array and its count
+    5. S4 ($sort): sort to newest subscribers first (in desc order)
+    6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar)
+    7. return success response with subscribers array and its count
     */
 
     // ============= 1. extract the channelId from req.params and validate it =============
@@ -152,19 +153,27 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
         },
         // =========== 4. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten) ===========
 
-        // ========== 5. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
+        // =========== 5. S4 ($sort): sort to newest subscribers first (in desc order) ===========
+        {
+            $sort: {
+                createdAt: -1
+            }
+        },
+        // =========== 5. S4 ($sort): sort to newest subscribers first (in desc order) ===========
+
+        // ========== 6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
         {
             $project: {
                 subscriber: 1,
                 createdAt:1
             }
         }
-        // ========== 5. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
+        // ========== 6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
     ]);
 
     console.log('Subscribers aggregated and subscribers count: ', subscribers, subscribers.length);
 
-    // ========== 6. return success response with subscribers array and its count ==========
+    // ========== 7. return success response with subscribers array and its count ==========
     return res
     .status(200)
     .json(
@@ -177,7 +186,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
             'Subscribers fetched successfully'
         )
     );
-    // ========== 6. return success response with subscribers array and its count ==========
+    // ========== 7. return success response with subscribers array and its count ==========
 });
 
 
