@@ -89,6 +89,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
 
 
+// my followers
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     /* ** algorithm to follow step by step, to get user channel subscribers by channel ID **
     1. extract the channelId from req.params and validate it
@@ -191,14 +192,124 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 subscribers,
                 subscribersCount: subscribers.length
             },
-            'Subscribers fetched successfully'
+            `Subscribers of channel ${channel.fullName} fetched successfully`
         )
     );
     // ========== 8. return success response with subscribers array and its count ==========
 });
 
 
+// to whom i am following
+const getSubscribedChannels = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get all channels a user is following by subscriber ID **
+    1. extract the subscriberId from req.params and validate it
+    2. verify that the subscriberId matches the currently logged-in user. if they dont match, throw a 403 error to keep the "Following" list private
+    3. S1 ($match): filter the Subscription collection for documents where the subscriber field matches the provided subscriberId
+    4. S2 ($lookup): join with the users collection to retrieve details (fullName, username, avatar) of the channel (the creator being followed)
+    5. S3 ($addFields): use $first to convert the channel array (created by lookup) into a single object for a cleaner data structure
+    6. S4 ($sort): sort the results by createdAt in desc order so that the most recently followed channels appear at the top
+    7. S5 ($project): filter the final output to only include the channel details and the createdAt timestamp
+    8. Send a success response including the list of channels and the total subscribedChannelsCount
+    */
+
+    // ========= 1. extract the subscriberId from req.params and validate it =========
+    const { subscriberId } = req.params;
+    
+    if (!isValidObjectId(subscriberId)) {
+        throw new ApiError(400, 'Invalid Subscriber ID');
+    }
+    
+    const subscriber = await User.findById(subscriberId);
+    if (!subscriber) {
+        throw new ApiError(404, 'Subscriber does not exist');
+    }
+    // ========= 1. extract the subscriberId from req.params and validate it =========
+    
+    
+    // 2. verify that the subscriberId matches the currently logged-in user. if they dont match, throw a 403 error to keep the "Following" list private
+    if (subscriberId.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, "Unauthorized! You do not have permission to view another user's subscription list");
+    }
+    // 2. verify that the subscriberId matches the currently logged-in user. if they dont match, throw a 403 error to keep the "Following" list private
+
+    const subscribedChannels = await Subscription.aggregate([
+        // ========== 3. S1 ($match): filter the Subscription collection for documents where the subscriber field matches the provided subscriberId ==========
+        {
+            $match: {
+                subscriber: mongoose.Types.ObjectId.createFromHexString(subscriberId)
+            }
+        },
+        // ========== 3. S1 ($match): filter the Subscription collection for documents where the subscriber field matches the provided subscriberId ==========
+        
+        // ==== 4. S2 ($lookup): join with the users collection to retrieve details (fullName, username, avatar) of the channel (the creator being followed) ====
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'channel',
+                foreignField: '_id',
+                as: 'channel',
+                pipeline: [
+                    {
+                        $project: {
+                            fullName: 1,
+                            username: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        // ==== 4. S2 ($lookup): join with the users collection to retrieve details (fullName, username, avatar) of the channel (the creator being followed) ====
+
+        // ========= 5. S3 ($addFields): use $first to convert the channel array (created by lookup) into a single object for a cleaner data structure =========
+        {
+            $addFields: {
+                channel: {
+                    $first: '$channel'
+                }
+            }
+        },
+        // ========= 5. S3 ($addFields): use $first to convert the channel array (created by lookup) into a single object for a cleaner data structure =========
+
+        // ======= 6. S4 ($sort): sort the results by createdAt in desc order so that the most recently followed channels appear at the top =======
+        {
+            $sort: {
+                createdAt: -1
+            }
+        },
+        // ======= 6. S4 ($sort): sort the results by createdAt in desc order so that the most recently followed channels appear at the top =======
+        
+        // ========== 7. S5 ($project): filter the final output to only include the channel details and the createdAt timestamp ==========
+        {
+            $project: {
+                channel: 1,
+                createdAt: 1
+            }
+        }
+        // ========== 7. S5 ($project): filter the final output to only include the channel details and the createdAt timestamp ==========
+    ]);
+
+    console.log('Subscribed channels: ', subscribedChannels);
+
+    
+    // ============= 8. Send a success response including the list of channels and the total subscribedChannelsCount =============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                subscribedChannels,
+                subscribedChannelsCount: subscribedChannels.length
+            },
+            `Subscribed channels of user: ${subscriber.fullName} fetched successfully`
+        )
+    );
+    // ============= 8. Send a success response including the list of channels and the total subscribedChannelsCount =============
+});
+
 export {
     toggleSubscription,
     getUserChannelSubscribers,
+    getSubscribedChannels
 }
