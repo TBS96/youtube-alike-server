@@ -92,12 +92,13 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     /* ** algorithm to follow step by step, to get user channel subscribers by channel ID **
     1. extract the channelId from req.params and validate it
-    2. S1 ($match): filter the Subscription collection for documents where channel matches the channelId
-    3. S2 ($lookup): join with the users collection to get the details of the subscriber (the person who followed)
-    4. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten)
-    5. S4 ($sort): sort to newest subscribers first (in desc order)
-    6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar)
-    7. return success response with subscribers array and its count
+    2. keep subscribers(followers) list private, by checking whether channelId is not equal to the loggedin user. if matches then throw error 403. the loggedin user can only check his own subscribers list
+    3. S1 ($match): filter the Subscription collection for documents where channel matches the channelId
+    4. S2 ($lookup): join with the users collection to get the details of the subscriber (the person who followed)
+    5. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten)
+    6. S4 ($sort): sort to newest subscribers first (in desc order)
+    7. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar)
+    8. return success response with subscribers array and its count
     */
 
     // ============= 1. extract the channelId from req.params and validate it =============
@@ -113,17 +114,24 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     }
     // ============= 1. extract the channelId from req.params and validate it =============
 
+
+    // ====== 2. keep subscribers(followers) list private, by checking channelId !== req.user?._id ======
+    if (channelId.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! Only the channel owner can view their subscriber list');
+    }
+    // ====== 2. keep subscribers(followers) list private, by checking channelId !== req.user?._id ======
+    
     
     const subscribers = await Subscription.aggregate([
-        // ============= 2. filter the Subscription collection for documents where channel matches the channelId =============
+        // ============= 3. filter the Subscription collection for documents where channel matches the channelId =============
         {
             $match: {
                 channel: mongoose.Types.ObjectId.createFromHexString(channelId.toString())
             }
         },
-        // ============= 2. filter the Subscription collection for documents where channel matches the channelId =============
+        // ============= 3. filter the Subscription collection for documents where channel matches the channelId =============
 
-        // ============= 3. S2 ($lookup): join with the users collection to get the details of the subscriber =============
+        // ============= 4. S2 ($lookup): join with the users collection to get the details of the subscriber =============
         {
             $lookup: {
                 from: 'users',
@@ -141,9 +149,9 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 ]
             }
         },
-        // ============= 3. S2 ($lookup): join with the users collection to get the details of the subscriber =============
+        // ============= 4. S2 ($lookup): join with the users collection to get the details of the subscriber =============
 
-        // =========== 4. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten) ===========
+        // =========== 5. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten) ===========
         {
             $addFields: {
                 subscriber: {
@@ -151,29 +159,29 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 }
             }
         },
-        // =========== 4. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten) ===========
+        // =========== 5. S3 ($addFields): use $first to convert the subscriber array from the lookup into a single object (flatten) ===========
 
-        // =========== 5. S4 ($sort): sort to newest subscribers first (in desc order) ===========
+        // =========== 6. S4 ($sort): sort to newest subscribers first (in desc order) ===========
         {
             $sort: {
                 createdAt: -1
             }
         },
-        // =========== 5. S4 ($sort): sort to newest subscribers first (in desc order) ===========
+        // =========== 6. S4 ($sort): sort to newest subscribers first (in desc order) ===========
 
-        // ========== 6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
+        // ========== 7. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
         {
             $project: {
                 subscriber: 1,
                 createdAt:1
             }
         }
-        // ========== 6. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
+        // ========== 7. S5 ($project): clean up the output to only show necessary subscriber fields (fullName, username, avatar) ==========
     ]);
 
     console.log('Subscribers aggregated and subscribers count: ', subscribers, subscribers.length);
 
-    // ========== 7. return success response with subscribers array and its count ==========
+    // ========== 8. return success response with subscribers array and its count ==========
     return res
     .status(200)
     .json(
@@ -186,7 +194,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
             'Subscribers fetched successfully'
         )
     );
-    // ========== 7. return success response with subscribers array and its count ==========
+    // ========== 8. return success response with subscribers array and its count ==========
 });
 
 
