@@ -3,6 +3,7 @@ import { isValidObjectId } from 'mongoose';
 import { ApiError } from '../utils/ApiError.js';
 import { Subscription } from '../models/subscription.model.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { User } from '../models/user.model.js';
 
 
 
@@ -23,6 +24,11 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     
     if (!isValidObjectId(channelId)) {
         throw new ApiError(400, 'Invalid or missing channel ID');
+    }
+
+    const channel = await User.findById(channelId);
+    if (!channel) {
+        throw new ApiError(404, 'Channel does not exist');
     }
     // ========== 1. extract the channelId from req.params and validate it ==========
 
