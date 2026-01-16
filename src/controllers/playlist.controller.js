@@ -73,9 +73,10 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails
     2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error
     3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error
-    4. update the playlist by adding video/s
-    5. check whether video is added to playlist or not,  else throw error 500
-    6. return success response
+    4. check if the videoId already exists in the playlist, then throw error 409
+    5. update the playlist by adding video/s
+    6. check whether video is added to playlist or not,  else throw error 500
+    7. return success response
     */
 
 	//  ========== 1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails ==========
@@ -115,7 +116,14 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     // ====== 3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error ======
 
 	
-    // ========= 4. update the playlist by adding video/s =========
+    // ========== 4. check if the videoId already exists in the playlist, then throw error 409 ==========
+    if (playlist.videos.includes(videoId)) {
+        throw new ApiError(409, 'Video already exists in the playlist');
+    }
+    // ========== 4. check if the videoId already exists in the playlist, then throw error 409 ==========
+
+
+    // ========= 5. update the playlist by adding video/s =========
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
         playlistId,
 		{
@@ -127,24 +135,24 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
             new: true,
 		}
 	);
-    // ========= 4. update the playlist by adding video/s =========
+    // ========= 5. update the playlist by adding video/s =========
 
 	
-    // ============ 5. check whether video is added to playlist or not,  else throw error 500 ============
+    // ============ 6. check whether video is added to playlist or not,  else throw error 500 ============
     if (!updatedPlaylist) {
         throw new ApiError(500, 'Something went wrong while adding video/s to the playlist');
 	}
-    // ============ 5. check whether video is added to playlist or not,  else throw error 500 ============
+    // ============ 6. check whether video is added to playlist or not,  else throw error 500 ============
     
 	console.log('Updated playlist: ', updatedPlaylist);
 
-    // ======== 6. return success response ========
+    // ======== 7. return success response ========
     return res
     .status(200)
     .json(
-        new ApiResponse(200, updatedPlaylist, 'Added videos to playlist successfully')
+        new ApiResponse(200, updatedPlaylist, `Added video: "${video?.title}" to playlist successfully`)
     );
-    // ======== 6. return success response ========
+    // ======== 7. return success response ========
 });
 
 
