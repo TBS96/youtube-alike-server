@@ -117,7 +117,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 
 	
     // ========== 4. check if the videoId already exists in the playlist, then throw error 409 ==========
-    if (playlist.videos.includes(videoId)) {
+    if (playlist?.videos?.includes(videoId)) {
         throw new ApiError(409, 'Video already exists in the playlist');
     }
     // ========== 4. check if the videoId already exists in the playlist, then throw error 409 ==========
