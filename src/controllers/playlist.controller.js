@@ -9,7 +9,7 @@ import { Video } from '../models/video.model.js';
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
-    /* ** algorithm to follow step by step, to toggle subscription by channel ID **
+    /* ** algorithm to follow step by step, to create playlist **
     1. extract name, description from req.body and validate them
     2. check if playlist already exists with same playlist name. if exists, throw error 409
     3. create playlist
@@ -69,7 +69,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-	/* ** algorithm to follow step by step, to get all channels a user is following by subscriber ID **
+	/* ** algorithm to follow step by step, to update playlist with playlistId and videoId, by adding videos **
     1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails
     2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error
     3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error
@@ -144,7 +144,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 	}
     // ============ 6. check whether video is added to playlist or not,  else throw error 500 ============
     
-	console.log('Updated playlist: ', updatedPlaylist);
+	console.log('Updated playlist after adding video: ', updatedPlaylist);
 
     // ======== 7. return success response ========
     return res
@@ -156,7 +156,76 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 });
 
 
+
+const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to update playlist with playlistId and videoId, by deleting videos **
+    1. extract playlistId, videoId from req.params, validate them and throw 400 error respectively and 404 error for playlistId if validation fails
+    2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error
+    3. update the playlist by deleting video/s using $pull operator (reaches inside this array(videos[]) and removes only this specific ID (videoId))
+    4. check whether video is added to playlist or not,  else throw error 500
+    5. return success response
+    */
+
+    // ===== 1. extract playlistId, videoId from req.params, validate them and throw 400 error respectively and 404 error for playlistId if validation fails =====
+    const { playlistId, videoId } = req.params;
+    
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, 'Invalid playlist ID');
+    }
+    
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'Invalid video ID');
+    }
+    
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) {
+        throw new ApiError(404, 'Playlist does not exist');
+    }
+    // ===== 1. extract playlistId, videoId from req.params, validate them and throw 400 error respectively and 404 error for playlistId if validation fails =====
+
+    
+    // ========== 2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error ==========
+    if (playlist.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to modify this playlist');
+    }
+    // ========== 2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error ==========
+
+
+    // ============ 3. update the playlist by deleting video/s using $pull operator ============
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            $pull: {    // $pull operator reaches inside this array(videos[]) and removes only this specific ID (videoId)
+                videos: videoId
+            }
+        },
+        {
+            new: true
+        }
+    );
+    // ============ 3. update the playlist by deleting video/s using $pull operator ============
+
+    
+    // ============= 4. check whether video is added to playlist or not,  else throw error 500 =============
+    if (!updatedPlaylist) {
+        throw new ApiError(500, 'Something went wrong while deleting video/s from the playlist');
+    }
+    // ============= 4. check whether video is added to playlist or not,  else throw error 500 =============
+
+    console.log('Updated playlist after deleting video: ', updatedPlaylist);
+
+    // =========== 5. return success response ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedPlaylist, 'Deleted video from the playlist successfully')
+    );
+    // =========== 5. return success response ===========
+});
+
+
 export {
     createPlaylist,
-    addVideoToPlaylist
+    addVideoToPlaylist,
+    removeVideoFromPlaylist,
 }
