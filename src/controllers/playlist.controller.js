@@ -2,6 +2,8 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { Playlist } from '../models/playlist.model.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
+import { isValidObjectId } from 'mongoose';
+import { Video } from '../models/video.model.js';
 
 
 
@@ -65,6 +67,88 @@ const createPlaylist = asyncHandler(async (req, res) => {
 });
 
 
+
+const addVideoToPlaylist = asyncHandler(async (req, res) => {
+	/* ** algorithm to follow step by step, to get all channels a user is following by subscriber ID **
+    1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails
+    2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error
+    3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error
+    4. update the playlist by adding video/s
+    5. check whether video is added to playlist or not,  else throw error 500
+    6. return success response
+    */
+
+	//  ========== 1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails ==========
+    const { playlistId, videoId } = req.params;
+    
+	if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, 'Invalid playlist ID');
+	}
+    
+	if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'Invalid video ID');
+	}
+    
+	const playlist = await Playlist.findById(playlistId);
+	if (!playlist) {
+        throw new ApiError(404, 'Playlist does not exist');
+	}
+    
+	const video = await Video.findById(videoId);
+	if (!video) {
+        throw new ApiError(404, 'Video does not exist');
+	}
+    //  ========== 1. extract playlistId, videoId from req.params, validate them and throw 400 and 404 errors respectively if validation fails ==========
+
+	
+    // ======== 2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error ========
+    if (playlist.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to modify this playlist');
+	}
+    // ======== 2. verify that the playlist.owner matches the currently logged-in user. if they dont match, throw a 403 error ========
+
+	
+    // ====== 3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error ======
+    if (!video.isPublished && video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! This video is private and cannot be added to your playlist');
+	}
+    // ====== 3. verify that the video.isPublished is falsy and video.owner matches the currently logged-in user. if they dont match, throw a 403 error ======
+
+	
+    // ========= 4. update the playlist by adding video/s =========
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(
+        playlistId,
+		{
+			$addToSet: {
+                videos: videoId,
+			},
+		},
+		{
+            new: true,
+		}
+	);
+    // ========= 4. update the playlist by adding video/s =========
+
+	
+    // ============ 5. check whether video is added to playlist or not,  else throw error 500 ============
+    if (!updatedPlaylist) {
+        throw new ApiError(500, 'Something went wrong while adding video/s to the playlist');
+	}
+    // ============ 5. check whether video is added to playlist or not,  else throw error 500 ============
+    
+	console.log('Updated playlist: ', updatedPlaylist);
+
+    // ======== 6. return success response ========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedPlaylist, 'Added videos to playlist successfully')
+    );
+    // ======== 6. return success response ========
+});
+
+
 export {
     createPlaylist,
+    addVideoToPlaylist
 }
