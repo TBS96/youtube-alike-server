@@ -59,11 +59,10 @@ const userSchema = new Schema(
 );
 
 // 'pre' middleware functions from mongoose are executed one after another, when each middleware calls 'next'
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+    if (!this.isModified('password')) return;
 
     this.password = await bcrypt.hash(this.password, 10);
-    next();
 });
 
 // creating custom mongoose method 'isPasswordCorect' to compare and check whether the password and its hashed version is same or not using 'bcrypt.compare()'. it takes computational power and time to compare, so using async-await.
