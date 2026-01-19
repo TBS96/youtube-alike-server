@@ -299,9 +299,60 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 });
 
 
+
+const deletePlaylist = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to delete playlist **
+    1. extract playlistId from req.params, validate it and throw error 400
+    2. check whether playlist exists in DB by its ID else throw error 404
+    3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403
+    4. delete the playlist
+    5. return success response
+    */
+
+    // ========== 1. extract playlistId from req.params, validate it and throw error 400 ==========
+    const { playlistId } = req.params;
+    
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, 'Invalid playlist ID');
+    }
+    // ========== 1. extract playlistId from req.params, validate it and throw error 400 ==========
+
+    
+    // ========== 2. check whether playlist exists in DB by its ID else throw error 404 ==========
+    const playlist = await Playlist.findById(playlistId);
+    
+    if (!playlist) {
+        throw new ApiError(404, 'Playlist not found');
+    }
+    // ========== 2. check whether playlist exists in DB by its ID else throw error 404 ==========
+
+    
+    // =========== 3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403 ===========
+    if (playlist.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to delete this playlist');
+    }
+    // =========== 3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403 ===========
+
+    
+    // ========== 4. delete the playlist ==========
+    await Playlist.findByIdAndDelete(playlistId);
+    // ========== 4. delete the playlist ==========
+
+    
+    // ========= 5. return success response =========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {}, 'Playlist deleted successfully')
+    );
+    // ========= 5. return success response =========
+});
+
+
 export {
     createPlaylist,
     addVideoToPlaylist,
     removeVideoFromPlaylist,
     updatePlaylist,
+    deletePlaylist,
 }
