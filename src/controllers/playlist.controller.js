@@ -224,8 +224,84 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 });
 
 
+
+const updatePlaylist = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to update playlist **
+    1. extract playlistId from req.params, and name, description from req.body and validate them and throw error 400 respectively
+    2. check whether playlist exists in DB by its ID else throw error 404
+    3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403
+    4. update the playlist
+    5. if playlist update fails, throw error 500
+    6. return success response
+    */
+
+    // ======== 1. extract playlistId from req.params, and name, description from req.body and validate them and throw error 400 respectively ========
+    const { playlistId } = req.params;
+    const { name, description } = req.body;
+    
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, 'Invalid playlist ID');
+    }
+    
+    if ([name, description].some(field => field?.trim() === '')) {
+        throw new ApiError(400, 'Name and description fields are required');
+    }
+    // ======== 1. extract playlistId from req.params, and name, description from req.body and validate them and throw error 400 respectively ========
+
+    
+    // ============ 2. check whether playlist exists in DB by its ID else throw error 404 ============
+    const playlist = await Playlist.findById(playlistId);
+    
+    if (!playlist) {
+        throw new ApiError(404, 'Playlist not found');
+    }
+    // ============ 2. check whether playlist exists in DB by its ID else throw error 404 ============
+
+    
+    // ======== 3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403 ========
+    if (playlist.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to modify this playlist');
+    }
+    // ======== 3. if playlist exists, then check whether playlist.owner === req.user._id, if not then throw error 403 ========
+
+    
+    // ======== 4. update the playlist ========
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            $set: {
+                name: name?.trim(),
+                description: description?.trim()
+            }
+        },
+        {
+            new: true
+        }
+    );
+    // ======== 4. update the playlist ========
+    
+    
+    // ============ 5. if playlist update fails, throw error 500 ============
+    if (!updatedPlaylist) {
+        throw new ApiError(500, 'Something went wrong while updating name or description');
+    }
+    // ============ 5. if playlist update fails, throw error 500 ============
+    
+    console.log('Updated playlist: ', updatedPlaylist);
+
+    // ========= 6. return success response =========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedPlaylist, 'Playlist updated successfully')
+    );
+    // ========= 6. return success response =========
+});
+
+
 export {
     createPlaylist,
     addVideoToPlaylist,
     removeVideoFromPlaylist,
+    updatePlaylist,
 }
