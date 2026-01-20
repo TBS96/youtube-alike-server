@@ -482,6 +482,89 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 });
 
 
+
+const getUserPlaylists = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get playlists of specific user by userId **
+    1. extract userId from req.params, validate it and throw error 400
+    2. S1 ($match): filter the playlists collection to find all documents where the owner field matches the provided userId
+    3. S2 ($addFields): calculate UI-friendly metadata to:
+        - $size on the videos array to create a videoCount field
+        - $arrayElemAt to grab the very first video ID (index 0) from the array to act as a single thumbnailVideo ID
+    4. S3 ($project): clean up the data and only pass through _id, name, description, videoCount, thumbnailVideo, and updatedAt
+    5. S4 ($sort): sort the list so the most recently updated playlists appear first (updatedAt: -1)
+    6. return success response with the playlists array
+    */
+
+    // ========== 1. extract userId from req.params, validate it and throw error 400 ==========
+    const { userId } = req.params;
+    
+    if (!isValidObjectId(userId))  {
+        throw new ApiError(400, 'Invalid user ID');
+    }
+    // ========== 1. extract userId from req.params, validate it and throw error 400 ==========
+
+    
+    const playlists = await Playlist.aggregate([
+        // ======== 2. S1 ($match): filter the playlists collection to find all documents where the owner field matches the provided userId ========
+        {
+            $match: {
+                owner: mongoose.Types.ObjectId.createFromHexString(userId)
+            }
+        },
+        // ======== 2. S1 ($match): filter the playlists collection to find all documents where the owner field matches the provided userId ========
+        
+        // ========== 3. S2 ($addFields): calculate UI-friendly metadata to get: ==========
+        {
+            $addFields: {
+                // ========== $size on the videos array to create a videoCount field ==========
+                videoCount: {
+                    $size: '$videos'
+                },
+                // ========== $size on the videos array to create a videoCount field ==========
+
+                // ========== $arrayElemAt to grab the very first video ID (index 0) from the array to act as a single thumbnailVideo ID ==========
+                thumbnailVideo: {
+                    $arrayElemAt: ['$videos', 0]
+                }
+                // ========== $arrayElemAt to grab the very first video ID (index 0) from the array to act as a single thumbnailVideo ID ==========
+            }
+        },
+        // ========== 3. S2 ($addFields): calculate UI-friendly metadata to get: ==========
+
+        // ======= 4. S3 ($project): clean up the data and only pass through _id, name, description, videoCount, thumbnailVideo, and updatedAt =======
+        {
+            $project: {
+                _id: 1,
+                name: 1,
+                description: 1,
+                videoCount: 1,
+                thumbnailVideo: 1,
+                updatedAt: 1
+            }
+        },
+        // ======= 4. S3 ($project): clean up the data and only pass through _id, name, description, videoCount, thumbnailVideo, and updatedAt =======
+        
+        // ============ 5. S4 ($sort): sort the list so the most recently updated playlists appear first (updatedAt: -1) ============
+        {
+            $sort: {
+                updatedAt: -1
+            }
+        }
+        // ============ 5. S4 ($sort): sort the list so the most recently updated playlists appear first (updatedAt: -1) ============
+    ]);
+
+    console.log('Logged in user playlists: ', playlists);
+
+    // =========== 6. return success response with the playlists array ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, playlists, 'User playlists fetched successfully')
+    );
+    // =========== 6. return success response with the playlists array ===========
+});
+
+
 export {
     createPlaylist,
     addVideoToPlaylist,
@@ -489,4 +572,5 @@ export {
     updatePlaylist,
     deletePlaylist,
     getPlaylistById,
+    getUserPlaylists
 }
