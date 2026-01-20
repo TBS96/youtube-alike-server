@@ -2,7 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/ApiError.js'
 import { Playlist } from '../models/playlist.model.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
-import { isValidObjectId } from 'mongoose';
+import mongoose, { isValidObjectId } from 'mongoose';
 import { Video } from '../models/video.model.js';
 
 
@@ -349,10 +349,144 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 });
 
 
+
+const getPlaylistById = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get playlist by id **
+    1. extract playlistId from req.params, validate it and throw error 400
+    2. S1 ($match): filter the single document in the playlists collection whose primary _id matches the playlistId
+    3. S2 ($lookup): join with the videos collection to populate the videos array. inside this lookup, use a nested pipeline to:
+        - $match: filter only include videos where isPublished is true
+        - $lookup: join(sub-lookup) with the users collection to find the owner of each specific video and project only the fullName, username, avatar of the video creator
+        - $addFields: $first to flatten the owner array into an object
+    4. S3 ($lookup): another join, but this time at the root level, with the users collection to get the details of the person who owns the playlist itself (playlist creator)
+    5. S4 ($addFields): $first to convert the playlist owner result from an array into a single object (flatten)
+    6. check the result of the aggregation `playlist`. if the array is empty, throw a 404 error
+    7. return success response with 1st element of playlist aggregation result
+    */
+
+    // ========= 1. extract playlistId from req.params, validate it and throw error 400 =========
+    const { playlistId } = req.params;
+    
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, 'Invalid playlist ID');
+    }
+    // ========= 1. extract playlistId from req.params, validate it and throw error 400 =========
+    
+
+    const playlist = await Playlist.aggregate([
+        // ======= 2. S1 ($match): filter the single document in the playlists collection whose primary _id matches the playlistId =======
+        {
+            $match: {
+                _id: mongoose.Types.ObjectId.createFromHexString(playlistId.toString())
+            }
+        },
+        // ======= 2. S1 ($match): filter the single document in the playlists collection whose primary _id matches the playlistId =======
+        
+        // ======= 3. S2 ($lookup): join with the videos collection to populate the videos array. inside this lookup, use a nested pipeline to: =======
+        {
+            $lookup: {
+                from: 'videos',
+                localField: 'videos',
+                foreignField: '_id',
+                as: 'videos',
+                pipeline: [
+                    // ========= $match: filter only include videos where isPublished is true =========
+                    {
+                        $match: {
+                            isPublished: true
+                        }
+                    },
+                    // ========= $match: filter only include videos where isPublished is true =========
+                    
+                    // ======= $lookup: join(sub-lookup) with the users collection to find the owner of each specific video and project only the fullName, username, avatar of the video creator =======
+                    {
+                        $lookup: {
+                            from: 'users',
+                            localField: 'owner',
+                            foreignField: '_id',
+                            as: 'owner',
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    // ======= $lookup: join(sub-lookup) with the users collection to find the owner of each specific video and project only the fullName, username, avatar of the video creator =======
+                    
+                    // ======= $addFields: $first to flatten the owner array into an object =======
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: '$owner'
+                            }
+                        }
+                    }
+                    // ======= $addFields: $first to flatten the owner array into an object =======
+                ]
+            }
+        },
+        // ======= 3. S2 ($lookup): join with the videos collection to populate the videos array. inside this lookup, use a nested pipeline to: =======
+        
+        // ======= 4. S3 ($lookup): another join, but this time at the root level, with the users collection to get the details of the person who owns the playlist itself (playlist creator) =======
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'owner',
+                foreignField: '_id',
+                as: 'owner',
+                pipeline: [
+                    {
+                        $project: {
+                            fullName: 1,
+                            username: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        // ======= 4. S3 ($lookup): another join, but this time at the root level, with the users collection to get the details of the person who owns the playlist itself (playlist creator) =======
+        
+        // ========== 5. S4 ($addFields): $first to convert the playlist owner result from an array into a single object (flatten) ==========
+        {
+            $addFields: {
+                owner: {
+                    $first: '$owner'
+                }
+            }
+        }
+        // ========== 5. S4 ($addFields): $first to convert the playlist owner result from an array into a single object (flatten) ==========
+    ]);
+
+    console.log('Get playlist: ', playlist);
+
+    // ========= 6. check the result of the aggregation `playlist`. if the array is empty, throw a 404 error =========
+    if (!playlist.length) {
+        throw new ApiError(404, 'Playlist not found');
+    }
+    // ========= 6. check the result of the aggregation `playlist`. if the array is empty, throw a 404 error =========
+
+    
+    // ======= 7. return success response with 1st element of playlist aggregation result =======
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, playlist[0], 'Playlist fetched successfully')
+    );
+    // ======= 7. return success response with 1st element of playlist aggregation result =======
+});
+
+
 export {
     createPlaylist,
     addVideoToPlaylist,
     removeVideoFromPlaylist,
     updatePlaylist,
     deletePlaylist,
+    getPlaylistById,
 }
