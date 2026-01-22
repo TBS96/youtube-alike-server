@@ -119,6 +119,44 @@ const getChannelStats = asyncHandler(async (req, res) => {
 });
 
 
+
+const getChannelVideos = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get all videos uploaded by the loggedin user **
+    1. extract userId from req.user?._id, validate it and throw 401 and 404 errors respectively
+    2. query the videos collection with .find() for all documents matching the owner ID and .sort() the results by creation date in desc order
+    3. return success response with videos[]
+    */
+
+    // =========== 1. extract userId from req.user?._id, validate it and throw 401 and 404 errors respectively ===========
+    const userId = req.user?._id;
+
+    if (!userId) {
+		throw new ApiError(401, 'Unauthenticated Unauthorized request!');
+	}
+
+	if (!isValidObjectId(userId)) {
+		throw new ApiError(400, 'Invalid user ID');
+	}
+    // =========== 1. extract userId from req.user?._id, validate it and throw 401 and 404 errors respectively ===========
+    
+    
+    // ======= 2. query the videos collection with .find() for all documents matching the owner ID and .sort() the results by creation date in desc order =======
+    const videos = await Video.find({ owner: userId }).sort({ createdAt: -1 });
+    // ======= 2. query the videos collection with .find() for all documents matching the owner ID and .sort() the results by creation date in desc order =======
+    
+    console.log('Videos: ', videos);
+    
+    // ========= 3. return success response with videos[] =========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, videos, 'Channel videos fetched successfully')
+    );
+    // ========= 3. return success response with videos[] =========
+});
+
+
 export {
     getChannelStats,
+    getChannelVideos
 }
